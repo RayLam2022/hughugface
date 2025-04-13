@@ -1,6 +1,9 @@
 import dotenv
 
-dotenv.load_dotenv("./.env", override=True)
+try:
+    dotenv.load_dotenv("./.env", override=True)
+except Exception as e:
+    print(e)
 
 import os
 import re
@@ -8,7 +11,6 @@ from pathlib import Path
 from typing import Literal, Generator
 
 from huggingface_hub import HfFileSystem
-from tqdm import tqdm
 
 
 HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
