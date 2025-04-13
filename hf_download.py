@@ -1,0 +1,152 @@
+import dotenv
+
+dotenv.load_dotenv("./.env", override=True)
+
+import os
+import re
+from pathlib import Path
+from typing import Literal, Generator
+
+from huggingface_hub import HfFileSystem
+from tqdm import tqdm
+
+
+HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
+# os.environ["XDG_CACHE_HOME"] = user_setting["XDG_CACHE_HOME"]
+# os.environ["MODELSCOPE_CACHE"] = f"{user_setting['XDG_CACHE_HOME']}/modelscope"
+# os.environ["HF_ENDPOINT"] = https://hf-mirror.com
+
+#输token : huggingface-cli login
+
+class HFDownload:
+    def __init__(
+        self,
+        repo_id: str,
+        local_dir: str | Path,
+        repo_type: Literal["model", "dataset"] = "model",
+        allow_patterns: list[str] | None = None, 
+        ignore_patterns: list[str] | None = None, 
+        endpoint: Literal[
+            "https://huggingface.co", "https://hf-mirror.com"
+        ] = "https://huggingface.co",
+        token: bool | str | None = None,
+        revision: str | None = None,
+    ) -> None:
+        """
+        初始化仓库对象
+
+        Args:
+            repo_id (str): 仓库ID
+            local_dir (str | Path): 本地目录路径
+            repo_type (Literal["model", "dataset"], optional): 仓库类型，默认为"model"。可以是"model"或"dataset"。
+            allow_patterns (list[str], optional): 允许的正则表达式列表，默认为None。 注意:是远程仓库的hf全路径做正则
+            ignore_patterns (list[str], optional): 忽略的正则表达式列表，默认为None。 注意:是远程仓库的hf全路径做正则
+            endpoint (Literal["https://huggingface.co", "https://hf-mirror.com"], optional): 端点，默认为"https://huggingface.co"。
+            token (bool | str | None, optional): 访问令牌，默认为None。
+            revision (str | None, optional): 版本号，默认为None。
+        """
+        
+        if HUGGINGFACE_TOKEN != "":
+            self.token = HUGGINGFACE_TOKEN
+        else:
+            self.token = token
+
+        self.repo_id = repo_id
+
+        if isinstance(local_dir, str):
+            self.local_dir = Path(local_dir)
+        if repo_type == "dataset":
+            self.repo_type = "datasets/"
+        else:
+            self.repo_type = ""
+        self.header = f"{self.repo_type}{self.repo_id}".split("/")
+
+        self.revision = revision
+        self.allow_patterns = allow_patterns
+        self.ignore_patterns = ignore_patterns
+        self.fs = HfFileSystem(token=self.token, endpoint=endpoint)
+
+    def _match_path(self, string: str) -> bool:
+        try:
+            if self.ignore_patterns is not None:
+                if len(self.ignore_patterns) > 0:
+                    for pattern in self.ignore_patterns:
+                        if re.match(pattern, string):
+                            return False
+
+            res = False
+            if self.allow_patterns is not None:
+                if len(self.allow_patterns) > 0:
+                    for pattern in self.allow_patterns:
+                        if re.match(pattern, string):
+                            res = True
+                            break
+                else:
+                    res = True
+            else:
+                res = True
+            return res
+        except Exception as e:
+            raise f"{e}  ignore_patterns或allow_patterns格式错误"
+
+    def get_files_in_dir(
+        self, dir_path: str, is_recursive: bool = True ,is_download: bool = False, is_resume_download: bool = True
+    ) -> Generator[tuple[str,Path], None, None]:
+        if dir_path != "":
+            dir_path = f"/{dir_path}"
+        else:
+            pass
+        paths = self.fs.ls(
+            f"{self.repo_type}{self.repo_id}{dir_path}",
+            detail=False,
+            revision=self.revision,
+        )            
+        for path in paths:
+            if self.fs.isfile(path):
+                if self._match_path(path):
+                    save_path = path.split("/")[len(self.header) :]
+                    save_path = "/".join(save_path)
+                    save_path = self.local_dir / save_path
+                    if is_download:
+                        if is_resume_download:
+                            expected_size = self.fs.info(
+                                path, revision=self.revision
+                            )["size"]
+                            if save_path.exists(): 
+                                local_size = save_path.stat().st_size
+                                # print(f"{local_size}/{expected_size}")
+                                if local_size != expected_size:
+                                    self.fs.get_file(rpath=path, lpath=save_path)
+                                else:
+                                    pass
+                            else:
+                                self.fs.get_file(rpath=path, lpath=save_path)
+                        else:
+                            self.fs.get_file(rpath=path, lpath=save_path)
+                    yield (path, save_path)
+            else:
+                if is_recursive:
+                    temp_dir_path = path.split("/")[len(self.header) :]
+                    temp_dir_path = "/".join(temp_dir_path)
+                    yield from self.get_files_in_dir(
+                        dir_path=temp_dir_path,
+                        is_recursive=is_recursive,
+                        is_download=is_download,
+                        is_resume_download=is_resume_download,
+                    )
+
+
+if __name__ == "__main__":
+    hf = HFDownload(
+        repo_id="lucas-ventura/chapter-llama",
+        repo_type="model",
+        local_dir=r"C:\Users",
+        endpoint="https://huggingface.co",
+        allow_patterns=[".*"],
+        ignore_patterns=[],
+        revision="main",
+    )
+
+    for file, savepath in hf.get_files_in_dir("outputs", is_recursive=True, is_download=True):
+        print(file)
+        pass
