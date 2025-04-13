@@ -1,6 +1,6 @@
-import dotenv
 
 try:
+    import dotenv
     dotenv.load_dotenv("./.env", override=True)
 except Exception as e:
     print(e)
