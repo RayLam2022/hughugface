@@ -13,12 +13,15 @@ from typing import Literal, Generator
 from huggingface_hub import HfFileSystem
 
 
-HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
+
+HF_TOKEN=os.environ.get("HF_TOKEN")  # 官方环境变量
+HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN") 
+
 # os.environ["XDG_CACHE_HOME"] = user_setting["XDG_CACHE_HOME"]
 # os.environ["MODELSCOPE_CACHE"] = f"{user_setting['XDG_CACHE_HOME']}/modelscope"
 # os.environ["HF_ENDPOINT"] = https://hf-mirror.com
 
-#输token : huggingface-cli login
+
 
 class HFDownload:
     def __init__(
@@ -47,11 +50,14 @@ class HFDownload:
             token (bool | str | None, optional): 访问令牌，默认为None。
             revision (str | None, optional): 版本号，默认为None。
         """
-        
-        if HUGGINGFACE_TOKEN != "":
+        if token is not None:
+            self.token = token
+        elif HF_TOKEN != "":
+            self.token = HF_TOKEN
+        elif HUGGINGFACE_TOKEN != "":
             self.token = HUGGINGFACE_TOKEN
         else:
-            self.token = token
+            self.token = None
 
         self.repo_id = repo_id
 
@@ -89,7 +95,7 @@ class HFDownload:
                 res = True
             return res
         except Exception as e:
-            raise f"{e}  ignore_patterns或allow_patterns格式错误"
+            raise ValueError(f"{e} ignore_patterns或allow_patterns格式错误")
 
     def get_files_in_dir(
         self, dir_path: str, is_recursive: bool = True ,is_download: bool = False, is_resume_download: bool = True
@@ -140,15 +146,15 @@ class HFDownload:
 
 if __name__ == "__main__":
     hf = HFDownload(
-        repo_id="lucas-ventura/chapter-llama",
+        repo_id="Comfy-Org/Qwen-Image_ComfyUI",
         repo_type="model",
-        local_dir=r"C:\Users",
-        endpoint="https://huggingface.co",
+        local_dir=r"E:\qwen_image",
+        endpoint="https://hf-mirror.com", #"https://huggingface.co",
         allow_patterns=[".*"],
-        ignore_patterns=[],
+        ignore_patterns=[".*qwen_image_bf16.safetensors",".*qwen_2.5_vl_7b.safetensors"],
         revision="main",
     )
 
-    for file, savepath in hf.get_files_in_dir("outputs", is_recursive=True, is_download=True):
+    for file, savepath in hf.get_files_in_dir("split_files", is_recursive=True, is_download=True):
         print(file)
         pass
