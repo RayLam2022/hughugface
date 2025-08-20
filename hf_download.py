@@ -15,12 +15,14 @@ from huggingface_hub import HfFileSystem
 
 
 HF_TOKEN=os.environ.get("HF_TOKEN")  # 官方环境变量
-HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN") 
+HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN") # 社区和部分依赖习惯用名
 
 # os.environ["XDG_CACHE_HOME"] = user_setting["XDG_CACHE_HOME"]
 # os.environ["MODELSCOPE_CACHE"] = f"{user_setting['XDG_CACHE_HOME']}/modelscope"
 # os.environ["HF_ENDPOINT"] = https://hf-mirror.com
 
+#输token : huggingface-cli login  改为hf auth login --token $HF_TOKEN --add-to-git-credential
+# 查询登录用户名：hf auth whoami
 
 
 class HFDownload:
